@@ -1,0 +1,1111 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>深夜博物馆</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+html,body { width:100%; height:100%; font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif; background:#0a0908; overflow:hidden; }
+
+.container { position:fixed; top:0; left:50%; transform:translateX(-50%); width:100%; max-width:430px; height:100%; background:#0a0908; overflow:hidden; }
+
+.page { position:absolute; top:0; left:0; width:100%; height:100%; display:none; flex-direction:column; }
+.page.active { display:flex; }
+
+/* ============ 通用按钮 ============ */
+button { -webkit-appearance:none; appearance:none; touch-action:manipulation; border:none; cursor:pointer; font-family:inherit; outline:none; }
+.btn-primary {
+  padding:14px 40px; background:transparent; color:#e8e0d4;
+  border:1px solid rgba(232,224,212,0.25); border-radius:0;
+  font-size:14px; font-weight:300; letter-spacing:4px;
+  transition:all 0.4s ease; position:relative;
+}
+.btn-primary:hover { background:rgba(232,224,212,0.08); border-color:rgba(232,224,212,0.5); }
+.btn-primary:active { transform:scale(0.97); }
+.btn-secondary {
+  padding:12px 32px; background:transparent; color:rgba(232,224,212,0.6);
+  border:1px solid rgba(232,224,212,0.12); font-size:13px;
+  letter-spacing:2px; transition:all 0.3s;
+}
+.btn-secondary:hover { border-color:rgba(232,224,212,0.3); color:#e8e0d4; }
+
+/* ============ 入馆页 ============ */
+#entryPage {
+  background:radial-gradient(ellipse at 50% 30%, #1a1714 0%, #0a0908 70%);
+  justify-content:center; align-items:center; text-align:center; padding:40px 32px;
+}
+.entry-glow {
+  position:absolute; top:40%; left:50%; transform:translate(-50%,-50%);
+  width:200px; height:200px;
+  background:radial-gradient(circle, rgba(232,224,212,0.06) 0%, transparent 70%);
+  animation:glowPulse 5s ease-in-out infinite;
+}
+@keyframes glowPulse { 0%,100%{opacity:0.4;} 50%{opacity:0.8;} }
+
+.museum-icon {
+  width:56px; height:56px; border:1px solid rgba(232,224,212,0.15);
+  border-radius:50%; display:flex; align-items:center; justify-content:center;
+  margin-bottom:36px; position:relative; z-index:2;
+}
+.museum-icon::before {
+  content:''; width:18px; height:18px; border:1px solid rgba(232,224,212,0.25);
+  transform:rotate(45deg);
+}
+
+.entry-text-wrap { min-height:140px; display:flex; flex-direction:column; justify-content:center; gap:16px; position:relative; z-index:2; }
+.entry-line { font-size:13px; color:rgba(232,224,212,0.35); letter-spacing:2px; opacity:0; transform:translateY(10px); transition:all 1s ease; }
+.entry-line.show { opacity:1; transform:translateY(0); }
+.entry-line.final { font-size:28px; color:#e8e0d4; font-weight:300; letter-spacing:8px; margin-top:8px; }
+
+#enterBtn { margin-top:48px; opacity:0; transition:opacity 1s ease; position:relative; z-index:2; }
+#enterBtn.show { opacity:1; }
+
+.open-time { font-size:11px; color:rgba(232,224,212,0.15); letter-spacing:3px; margin-top:40px; }
+
+/* ============ 灰尘粒子 ============ */
+.dust { position:absolute; width:2px; height:2px; background:rgba(255,240,220,0.12); border-radius:50%; animation:float-dust linear infinite; pointer-events:none; }
+@keyframes float-dust {
+  0% { transform:translateY(0) translateX(0); opacity:0; }
+  20% { opacity:0.25; }
+  80% { opacity:0.25; }
+  100% { transform:translateY(-80px) translateX(20px); opacity:0; }
+}
+
+/* ============ 问卷页通用 ============ */
+.step-page { background:#0a0908; justify-content:space-between; padding:48px 28px 32px; }
+.step-header { text-align:center; }
+.step-progress { font-size:11px; color:rgba(232,224,212,0.25); letter-spacing:3px; margin-bottom:20px; }
+.step-title { font-size:20px; color:#e8e0d4; font-weight:300; letter-spacing:1px; }
+.step-body { flex:1; display:flex; flex-direction:column; justify-content:center; gap:20px; }
+.step-footer { display:flex; justify-content:center; }
+
+/* ============ 时间滑块 ============ */
+.time-display { text-align:center; font-size:48px; color:#e8e0d4; font-weight:200; letter-spacing:4px; margin-bottom:6px; }
+.time-period { text-align:center; font-size:13px; color:rgba(232,224,212,0.4); margin-bottom:32px; letter-spacing:2px; }
+#timeSlider {
+  width:100%; height:2px; -webkit-appearance:none; appearance:none;
+  background:rgba(232,224,212,0.1); border-radius:1px; outline:none;
+}
+#timeSlider::-webkit-slider-thumb {
+  -webkit-appearance:none; width:18px; height:18px; border-radius:50%;
+  background:#e8e0d4; box-shadow:0 0 12px rgba(232,224,212,0.3); cursor:pointer;
+}
+.time-hint { text-align:center; font-size:12px; color:rgba(232,224,212,0.25); margin-top:28px; line-height:1.8; }
+
+/* ============ 活动选择网格 ============ */
+.activity-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+.activity-card {
+  background:rgba(232,224,212,0.02); border:1px solid rgba(232,224,212,0.06);
+  border-radius:0; padding:16px 8px; text-align:center; transition:all 0.3s ease;
+}
+.activity-card .a-icon { font-size:24px; display:block; margin-bottom:6px; }
+.activity-card .a-label { font-size:13px; color:rgba(232,224,212,0.5); }
+.activity-card.selected { background:rgba(232,224,212,0.06); border-color:rgba(232,224,212,0.25); }
+.activity-card.selected .a-label { color:#e8e0d4; }
+.activity-card:active { transform:scale(0.96); }
+
+/* ============ 情绪球 ============ */
+.mood-grid { display:grid; grid-template-columns:1fr 1fr 1fr; gap:20px 12px; padding:0 8px; }
+.mood-orb-wrap { display:flex; flex-direction:column; align-items:center; gap:8px; }
+.mood-orb {
+  width:56px; height:56px; border-radius:50%; transition:all 0.3s ease;
+  display:flex; align-items:center; justify-content:center; position:relative;
+  border:1.5px solid transparent;
+}
+.mood-orb.selected { transform:scale(1.12); border-color:currentColor; box-shadow:0 0 20px currentColor; }
+.mood-orb-wrap:active .mood-orb { transform:scale(0.92); }
+.mood-label { font-size:12px; color:rgba(232,224,212,0.4); }
+.mood-orb-wrap.selected .mood-label { color:#e8e0d4; }
+
+/* ============ 加载页 ============ */
+#loadingPage { background:#0a0908; justify-content:center; align-items:center; padding:40px; }
+.loading-wrap { text-align:center; width:100%; }
+.loading-number { font-size:48px; font-weight:200; color:rgba(232,224,212,0.1); letter-spacing:4px; margin-bottom:28px; }
+.loading-text { font-size:13px; color:rgba(232,224,212,0.3); letter-spacing:6px; font-weight:300; }
+
+/* ============ 结果页 ============ */
+#resultPage { background:#0a0908; overflow-y:auto; padding:0; -webkit-overflow-scrolling:touch; }
+#resultPage::-webkit-scrollbar { width:0; }
+
+.spotlight {
+  position:absolute; width:100%; height:100%;
+  background:radial-gradient(ellipse 100px 180px at 50% 30%, rgba(255,240,220,0.05) 0%, transparent 60%);
+  pointer-events:none; z-index:1;
+}
+
+.result-header { position:relative; padding:48px 24px 16px; text-align:center; }
+.museum-eyebrow { font-size:10px; color:rgba(232,224,212,0.2); letter-spacing:4px; position:relative; z-index:2; }
+
+.exhibit-card {
+  margin:0 20px 0; background:linear-gradient(165deg,#f4ecd8,#ebe0c8); border-radius:2px;
+  padding:32px 24px 28px; position:relative;
+  box-shadow:0 16px 40px rgba(0,0,0,0.5);
+}
+.exhibit-card::before {
+  content:''; position:absolute; inset:6px; border:1px solid rgba(61,43,31,0.12); pointer-events:none;
+}
+.exhibit-card.rare {
+  background:linear-gradient(165deg,#f4ecd8,#ebe0c8);
+  box-shadow:0 0 30px rgba(212,165,116,0.3), 0 16px 40px rgba(0,0,0,0.5);
+}
+.exhibit-card.rare::before {
+  border:1.5px solid rgba(212,165,116,0.4);
+}
+.rare-badge {
+  position:absolute; top:12px; right:12px;
+  font-size:10px; color:#a8895f; letter-spacing:2px;
+  border:1px solid rgba(168,137,95,0.3); padding:4px 10px;
+}
+.reveal-item { opacity:0; transform:translateY(12px); transition:all 0.8s ease; }
+.reveal-item.show { opacity:1; transform:translateY(0); }
+
+.ex-number { font-size:11px; color:#a8895f; letter-spacing:4px; text-align:center; margin-bottom:16px; font-weight:600; }
+.ex-title { font-family:Georgia,"Songti SC","STSong",serif; font-size:22px; color:#3d2b1f; text-align:center; font-weight:700; line-height:1.5; margin-bottom:20px; }
+.ex-meta { display:flex; flex-direction:column; gap:6px; align-items:center; padding-bottom:18px; margin-bottom:18px; border-bottom:1px dashed rgba(61,43,31,0.2); }
+.ex-meta-row { font-size:12px; color:#7a6552; }
+.ex-meta-row b { color:#3d2b1f; font-weight:600; }
+.ex-desc { font-family:Georgia,"Songti SC","STSong",serif; font-size:14px; color:#4a3829; line-height:2.2; white-space:pre-line; text-align:left; }
+
+.result-actions { display:flex; gap:12px; padding:28px 24px 0; justify-content:center; }
+.result-actions button { padding:12px 28px; font-size:13px; letter-spacing:2px; }
+#saveBtn { background:transparent; color:#e8e0d4; border:1px solid rgba(232,224,212,0.2); }
+#shareBtn { background:transparent; color:rgba(232,224,212,0.5); border:1px solid rgba(232,224,212,0.1); }
+
+/* 馆长精选 */
+.curator-section { padding:32px 24px 10px; }
+.curator-title { font-size:11px; color:rgba(232,224,212,0.3); letter-spacing:3px; margin-bottom:16px; display:flex; align-items:center; gap:10px; }
+.curator-title::before, .curator-title::after { content:''; flex:1; height:1px; background:rgba(232,224,212,0.08); }
+.curator-card {
+  background:rgba(232,224,212,0.02); border:1px solid rgba(232,224,212,0.06); border-radius:0;
+  padding:14px 16px; margin-bottom:10px; transition:all 0.3s;
+}
+.curator-card-head { display:flex; justify-content:space-between; align-items:baseline; margin-bottom:4px; }
+.curator-card-title { font-size:14px; color:#e8c4a0; font-weight:600; font-family:Georgia,"Songti SC",serif; }
+.curator-card-num { font-size:10px; color:rgba(232,224,212,0.25); letter-spacing:1px; }
+.curator-card-tag { font-size:11px; color:rgba(232,224,212,0.35); }
+.curator-card-snippet { font-size:12px; color:rgba(232,224,212,0.3); line-height:1.7; margin-top:8px; max-height:0; overflow:hidden; opacity:0; transition:all 0.4s; }
+.curator-card.expanded .curator-card-snippet { max-height:200px; opacity:1; margin-top:8px; }
+.curator-card-hint { font-size:10px; color:rgba(232,224,212,0.15); margin-top:6px; }
+
+.result-footer { padding:24px 24px 40px; text-align:center; }
+
+/* ============ 隐藏分享门票 ============ */
+#shareCard {
+  position:fixed; top:-9999px; left:-9999px; width:375px;
+  background:#0a0908; padding:0; overflow:hidden;
+}
+.ticket-inner { padding:40px 28px; position:relative; text-align:center; }
+.ticket-top { margin-bottom:32px; }
+.ticket-museum-name { font-size:11px; color:rgba(232,224,212,0.3); letter-spacing:4px; margin-bottom:4px; }
+.ticket-sub { font-size:9px; color:rgba(232,224,212,0.15); letter-spacing:3px; }
+.ticket-divider { width:40px; height:1px; background:rgba(232,224,212,0.15); margin:0 auto 28px; }
+.ticket-number { font-size:12px; color:#a8895f; letter-spacing:3px; margin-bottom:20px; }
+.ticket-title { font-family:Georgia,"Songti SC",serif; font-size:24px; color:#e8e0d4; font-weight:700; margin-bottom:12px; line-height:1.4; }
+.ticket-tag { font-size:13px; color:rgba(232,224,212,0.5); margin-bottom:32px; }
+.ticket-time { font-size:11px; color:rgba(232,224,212,0.25); margin-bottom:40px; }
+.ticket-quote { font-family:Georgia,"Songti SC",serif; font-size:14px; color:rgba(232,224,212,0.4); line-height:2; max-width:280px; margin:0 auto 40px; font-style:italic; }
+.ticket-bottom { border-top:1px solid rgba(232,224,212,0.08); padding-top:20px; }
+.ticket-brand { font-size:10px; color:rgba(232,224,212,0.15); letter-spacing:3px; }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <!-- 入馆页 -->
+  <div id="entryPage" class="page active">
+    <div class="entry-glow"></div>
+    <div class="museum-icon"></div>
+    <div class="entry-text-wrap" id="entryTextWrap"></div>
+    <button id="enterBtn" type="button" class="btn-primary">走进博物馆</button>
+    <div class="open-time">OPEN 22:00 — 04:00</div>
+    <div id="dust-container" style="position:absolute;width:100%;height:100%;pointer-events:none;z-index:1;"></div>
+  </div>
+
+  <!-- Step1 时间 -->
+  <div id="timeStepPage" class="page step-page">
+    <div class="step-header">
+      <div class="step-progress">STEP 1 / 3</div>
+      <div class="step-title">此刻，几点了？</div>
+    </div>
+    <div class="step-body">
+      <div class="time-display" id="timeDisplay">23:00</div>
+      <div class="time-period" id="timePeriod">深夜</div>
+      <input type="range" id="timeSlider" min="0" max="23" value="23" step="1">
+      <div class="time-hint">博物馆只为深夜的心事开放<br>拖动调整成你此刻所在的时间</div>
+    </div>
+    <div class="step-footer">
+      <button id="timeNextBtn" type="button" class="btn-primary">确认</button>
+    </div>
+  </div>
+
+  <!-- Step2 活动 -->
+  <div id="activityStepPage" class="page step-page">
+    <div class="step-header">
+      <div class="step-progress">STEP 2 / 3</div>
+      <div class="step-title">你正在做什么？</div>
+    </div>
+    <div class="step-body">
+      <div class="activity-grid" id="activityGrid"></div>
+    </div>
+    <!-- 活动选择点击即跳转，无需按钮 -->
+  </div>
+
+  <!-- Step3 情绪 -->
+  <div id="moodStepPage" class="page step-page">
+    <div class="step-header">
+      <div class="step-progress">STEP 3 / 3</div>
+      <div class="step-title">此刻的感觉？</div>
+    </div>
+    <div class="step-body">
+      <div class="mood-grid" id="moodGrid"></div>
+    </div>
+    <!-- 情绪选择点击即跳转，无需按钮 -->
+  </div>
+
+  <!-- 加载页 -->
+  <div id="loadingPage" class="page">
+    <div class="loading-wrap">
+      <div class="loading-number" id="loadingNumber"># ----</div>
+      <div class="loading-text" id="loadingText">正在调取馆藏记录...</div>
+    </div>
+  </div>
+
+  <!-- 结果页 -->
+  <div id="resultPage" class="page">
+    <div class="spotlight"></div>
+    <div class="result-header">
+      <div class="museum-eyebrow">深夜博物馆 · 当代情绪标本馆</div>
+    </div>
+
+    <div class="exhibit-card">
+      <div class="ex-number reveal-item" id="exNumber"></div>
+      <div class="ex-title reveal-item" id="exTitle"></div>
+      <div class="ex-meta reveal-item" id="exMeta"></div>
+      <div class="ex-desc reveal-item" id="exDesc"></div>
+    </div>
+
+    <div class="result-actions">
+      <button id="saveBtn" type="button">保存门票</button>
+      <button id="shareBtn" type="button">分享</button>
+    </div>
+
+    <div class="curator-section">
+      <div class="curator-title">馆长精选 · 今夜其他展区的回响</div>
+      <div id="curatorList"></div>
+    </div>
+
+    <div class="curator-section" style="padding-top:16px;">
+      <div class="curator-title">馆长结语</div>
+      <div style="font-size:13px;color:rgba(232,224,212,0.45);line-height:2;text-align:center;padding:0 24px 16px;" id="curatorClosing">
+        今晚收录的展品中，有许多和你一样。<br>
+        但每一件，都是独一无二的。
+      </div>
+    </div>
+
+    <div class="result-footer">
+      <button id="retestBtn" type="button" class="btn-secondary">重新入馆</button>
+      <button id="historyBtn" type="button" class="btn-secondary" style="margin-top:12px;">我的馆藏</button>
+    </div>
+  </div>
+
+  <!-- 个人馆藏历史页 -->
+  <div id="historyPage" class="page" style="background:#0a0908; overflow-y:auto; -webkit-overflow-scrolling:touch;">
+    <div class="result-header" style="padding:48px 24px 24px;">
+      <div class="museum-eyebrow">深夜博物馆 · 个人馆藏记录</div>
+    </div>
+    <div id="historyList" style="padding:0 20px 40px;"></div>
+    <div style="text-align:center; padding-bottom:40px;">
+      <button id="backFromHistory" type="button" class="btn-secondary">返回</button>
+    </div>
+  </div>
+
+  <!-- 隐藏分享门票 -->
+  <div id="shareCard">
+    <div class="ticket-inner">
+      <div class="ticket-top">
+        <div class="ticket-museum-name">深夜博物馆</div>
+        <div class="ticket-sub">MIDNIGHT MUSEUM</div>
+      </div>
+      <div class="ticket-divider"></div>
+      <div style="font-size:18px;color:#e8e0d4;font-weight:700;margin-bottom:16px;letter-spacing:2px;">今晚，我被深夜博物馆收录了</div>
+      <div class="ticket-number" id="ticketNumber"></div>
+      <div class="ticket-title" id="ticketTitle"></div>
+      <div class="ticket-tag" id="ticketTag"></div>
+      <div class="ticket-time" id="ticketTime"></div>
+      <div class="ticket-quote" id="ticketQuote"></div>
+      <div style="font-size:13px;color:rgba(232,224,212,0.4);margin-bottom:32px;">今晚，你也会成为馆藏吗？</div>
+      <div style="font-size:12px;color:#a8895f;letter-spacing:3px;margin-bottom:32px;border:1px solid rgba(168,137,95,0.3);padding:8px 16px;display:inline-block;">永久收录于深夜博物馆</div>
+      <div class="ticket-bottom">
+        <div class="ticket-brand">深夜博物馆 · 永远为你开放</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+/* ============================================================
+   数据层
+   ============================================================ */
+const ACTIVITIES = [
+  { id:'phone',   icon:'📱', label:'刷手机',   title:'第47次刷新',         verb:'划动着没有尽头的信息', zone:'digital',  code:'A' },
+  { id:'eating',  icon:'🍜', label:'吃东西',   title:'已经冷掉的泡面',     verb:'为自己煮了一点东西',   zone:'selfcare', code:'B' },
+  { id:'blank',   icon:'💭', label:'发呆',     title:'天花板上的空白',     verb:'望着某个不存在的地方', zone:'silent',   code:'C' },
+  { id:'waiting', icon:'⏳', label:'等消息',   title:'未发送的草稿箱',     verb:'等着一条还没出现的消息', zone:'waiting',  code:'D' },
+  { id:'working', icon:'💻', label:'工作学习', title:'光标在第三段闪烁',   verb:'和未完成的任务较劲',   zone:'labor',    code:'E' },
+  { id:'music',   icon:'🎧', label:'听歌',     title:'耳机里的避难所',     verb:'把自己交给一段旋律',   zone:'sound',    code:'F' },
+  { id:'sleeping',icon:'🌙', label:'准备睡觉', title:'静音模式',           verb:'把白天的自己慢慢关闭', zone:'selfcare', code:'G' },
+  { id:'other',   icon:'🌫️', label:'其他',     title:'无法对焦的此刻',     verb:'做着一件说不清的事',   zone:'silent',   code:'H' }
+];
+
+const MOODS = [
+  { id:'calm',      label:'平静',     tag:'平静的安顿',       reflection:'这种平静不是麻木，而是终于把自己安放好了。',           code:'1', color:'#8ba888' },
+  { id:'annoyed',   label:'有点烦',   tag:'压抑的躁动',       reflection:'烦躁的背后，往往是一些没有出口的在意。',               code:'2', color:'#c97b5f' },
+  { id:'empty',     label:'空的',     tag:'空白的容器',       reflection:'空，有时不是缺失，而是刚好留出了喘息的余地。',         code:'3', color:'#a8a8a8' },
+  { id:'satisfied', label:'还挺满足', tag:'孤独中的满足',     reflection:'没有人见证的满足，反而更接近真实。',                  code:'4', color:'#d4a574' },
+  { id:'unclear',   label:'说不清',   tag:'模糊的边界',       reflection:'说不清的情绪最值得被留意，它往往藏着尚未被听见的话。', code:'5', color:'#9b8aa8' },
+  { id:'sad',       label:'有点难过', tag:'沉默的重量',       reflection:'难过没有被说出来，但这件作品替你说了。',              code:'6', color:'#6b8caf' }
+];
+
+const ZONES = {
+  digital:  { name:'数字孤独展区',     philosophy:'手指的滑动是这个时代最沉默的语言。屏幕照亮了脸，却照不进心里。' },
+  selfcare: { name:'深夜自我照料展区', philosophy:'在没有人看见的时候，依然愿意对自己好一点，这是一种安静的尊严。' },
+  silent:   { name:'无声情感展区',     philosophy:'有些情绪从不需要被说出来，它们安静地存在，像空气一样真实。' },
+  waiting:  { name:'等待与期待展区',   philosophy:'等待是被悬置的时间，心被另一个人轻轻牵着，却不知道线的那头是否还在。' },
+  labor:    { name:'深夜劳作展区',     philosophy:'当其他人都已经休息，还在与未完成的事物搏斗，这是一种孤独的坚持。' },
+  sound:    { name:'声音与情绪展区',   philosophy:'旋律是没有文字的日记，在歌声里，人允许自己感受平时压抑的一切。' }
+};
+
+/* 40个专属展品文案 - 覆盖80%+组合，每个都有独特的策展说明 */
+const EXHIBITS = {
+  'phone_calm': {
+    intro: '深夜的屏幕光打在脸上，像一盏不会熄灭的灯。',
+    visual: '手指在屏幕上滑动，一条又一条。你不知道自己在找什么，但手指就是停不下来。屏幕的光是冷的，但你的脸是热的。',
+    philosophy: '刷手机刷到平静，是一种奇怪的状态。不是因为内容有趣，是因为动作本身成了安慰。',
+    closing: '这件作品提醒我们：有时候，停下来比继续滑更需要勇气。'
+  },
+  'phone_annoyed': {
+    intro: '你关掉手机，又打开。关掉，又打开。',
+    visual: '短视频一个接着一个，你笑了几次，但笑声越来越轻。热闹是屏幕里的，安静是你自己的。你关掉了手机，又打开了。',
+    philosophy: '烦躁的时候，我们总以为下一条内容会让自己好受一点。但算法不懂你的心事，它只懂你的停留时间。',
+    closing: '这件作品捕捉了数字时代最普遍的困境：我们在信息里溺水，却以为自己在游泳。'
+  },
+  'eating_satisfied': {
+    intro: '热水倒入碗中，白烟升起。',
+    visual: '你坐在桌前，热气模糊了视线。泡面不够好吃，但此刻刚好。没有人评判，没有人打扰，只有热汤和时间。',
+    philosophy: '在夜深人静时，为自己煮一碗热汤，这本身就是对自己的温柔。孤独有时是一种奢侈。',
+    closing: '这件作品想说的是：能独处而不感到绝望，能自我照料而不感到廉价，这是一种现代人的修养。'
+  },
+  'blank_empty': {
+    intro: '天花板上什么都没有，但你看了很久。',
+    visual: '身体很累，脑子很清醒。你翻了个身，换了面墙继续看。墙上有一道裂缝，你数了数，从床头到床尾一共十七块砖。',
+    philosophy: '发呆不是浪费时间，是时间在流经你。在这个要求每个人都"有用"的世界里，允许自己"无用"是一种反抗。',
+    closing: '这件作品记录了一个人与虚无和平共处的珍贵瞬间。'
+  },
+  'waiting_unclear': {
+    intro: '你知道不会有什么新消息。但你还是每隔几分钟看一次。',
+    visual: '手机屏幕亮了又暗，暗了又亮。这种等待本身，已经变成了一种习惯。像一盏灯，亮着，但没有人会经过。',
+    philosophy: '等待是最被动的主动。你把心交给了未知，然后假装自己不在乎。',
+    closing: '这件作品献给所有在深夜等过消息的人：你的等待，本身就已经是一种完整的情绪。'
+  },
+  'working_annoyed': {
+    intro: '台灯的光圈里，只有你和那件事。',
+    visual: '你盯着屏幕，光标在闪。你知道该睡了，但这件事没做完，明天会更糟。于是你继续，和未完成的任务较劲。',
+    philosophy: '深夜劳作的人，不是在追赶deadline，是在追赶一个更好的自己。虽然那个"更好"可能永远追不上。',
+    closing: '这件作品致敬所有在深夜与未完成和解的人。'
+  },
+  'music_sad': {
+    intro: '你把耳机塞紧，好像这样就能把世界关在外面。',
+    visual: '旋律响起的那一刻，你允许自己难过了。平时压抑的一切，在歌声里找到了出口。眼泪不是软弱，是终于放松了。',
+    philosophy: '音乐是深夜最安全的容器。它承接了你所有的情绪，却不评判，不追问，不要求你"振作"。',
+    closing: '这件作品记录了一个人在旋律里被拥抱的瞬间。'
+  },
+  'sleeping_calm': {
+    intro: '你躺在床上，把白天的自己慢慢折叠起来。',
+    visual: '被子是温暖的，房间是安静的。你把手机放到够不着的地方，闭上眼睛。这一刻，什么都不想了。',
+    philosophy: '睡觉是一种小小的死亡，每天一次。在睡眠里，我们放下所有的角色，回到最原始的自己。',
+    closing: '这件作品捕捉了一个人与自己和解的睡前瞬间。'
+  },
+  'phone_empty': {
+    intro: '你已经不记得自己看了什么。',
+    visual: '手指在动，眼睛在看，但什么都没有进去。你悬浮在深夜和清晨之间，哪边都靠不了岸。',
+    philosophy: '最可怕的不是孤独，是在人群中依然感到孤独。刷手机刷到麻木，是一种新型的失重状态。',
+    closing: '这件作品提醒我们：有时候，放下手机不是自律，是自救。'
+  },
+  'eating_calm': {
+    intro: '窗外的路灯亮着，偶尔有一辆车经过。',
+    visual: '你嚼着什么，不着急，也不困。世界在窗外运转，而你选择停下来。这一刻不需要意义。',
+    philosophy: '吃东西是最原始的自我安慰。在深夜，这种安慰变得纯粹——不是为了社交，不是为了拍照，只是为了自己。',
+    closing: '这件作品记录了一个人在食物里找到片刻安宁的瞬间。'
+  },
+  'blank_calm': {
+    intro: '窗外的世界已经睡了，只有路灯还醒着。',
+    visual: '你坐在窗边，不悲不喜。这种空不是空的，是满的——满到溢出来，反而什么都感觉不到了。',
+    philosophy: '真正的平静不是没有情绪，是容纳了所有情绪之后的安宁。像大海，表面平静，深处什么都有。',
+    closing: '这件作品捕捉了一种 rare 的状态：与自己和解的空白。'
+  },
+  'waiting_sad': {
+    intro: '对话框停留在昨天。',
+    visual: '你打了几个字，又删掉。打了又删。最后什么都没发。有些等待，注定没有回应。',
+    philosophy: '最痛的等待不是等不到，是明知道等不到还在等。这种自虐式的坚持，是深情最后的倔强。',
+    closing: '这件作品献给所有发过未发送消息的人。'
+  },
+  'working_calm': {
+    intro: '深夜的安静让思考变得清晰。',
+    visual: '没有消息，没有邮件，没有会议。只有你和你正在做的事。这种专注，白天永远给不了。',
+    philosophy: '深夜工作者不是在加班，是在偷时间。偷一段只属于自己、不被打扰的时间。',
+    closing: '这件作品致敬深夜的专注者：你们的安静，是这个喧嚣世界最珍贵的声音。'
+  },
+  'music_satisfied': {
+    intro: '你跟着旋律轻轻哼，虽然跑调了。',
+    visual: '耳机里的歌声像一条温暖的毯子，把你裹住。你闭上眼睛，嘴角不自觉地上扬。这一刻，你是安全的。',
+    philosophy: '音乐是最忠诚的陪伴。它不会离开你，不会背叛你，不会在你最需要的时候消失。',
+    closing: '这件作品记录了一个人在旋律里找到家的瞬间。'
+  },
+  'sleeping_sad': {
+    intro: '你把自己埋进被子里，好像这样就能躲开什么。',
+    visual: '枕头是湿的。你不知道什么时候哭的，可能是刚才，也可能是昨天。现在只想睡着，把这一切都关掉。',
+    philosophy: '睡觉有时候不是休息，是逃避。但逃避不可耻，可耻的是连逃避的权利都被剥夺。',
+    closing: '这件作品温柔地记录了一个人在睡前与悲伤独处的时刻。'
+  },
+  'other_unclear': {
+    intro: '你在做一件事，但说不清那是什么。',
+    visual: '房间里很安静，只有你自己的呼吸声。你在走动，或者坐着，或者站着。时间在这一刻失去了刻度。',
+    philosophy: '说不清自己在做什么，是因为你同时在想很多事。想回的消息、没做完的事、明天要交的作业，它们混在一起，让你忘了自己本来在干什么。',
+    closing: '这件作品献给所有说不清自己在做什么的深夜时刻。'
+  },
+  'phone_satisfied': {
+    intro: '你刷到了一条视频，笑出了声。',
+    visual: '深夜的笑声很轻，但它是真的。在这个安静的时刻，你允许自己开心，不需要理由。',
+    philosophy: '快乐在深夜变得纯粹。没有观众，没有点赞，没有"这有什么好笑的"。只有你，和你的笑。',
+    closing: '这件作品记录了一个人在屏幕前真心笑出来的瞬间。'
+  },
+  'blank_sad': {
+    intro: '没有光，没有声音，没有屏幕。',
+    visual: '你第一次听见了自己心跳的声音。原来安静是这么响的。你什么都不想做，也什么都做不了。就坐一会儿吧。',
+    philosophy: '最深的悲伤往往是无声的。不是哭泣，不是呐喊，是一种彻底的静止。像冬天结冰的湖面，下面什么都没有流动。',
+    closing: '这件作品温柔地陪伴所有在黑暗中静坐的人。'
+  },
+  'waiting_calm': {
+    intro: '你把手机翻了个面，屏幕朝下。',
+    visual: '消息来不来，已经不那么重要了。你学会了和等待和平相处，就像学会和呼吸相处一样自然。',
+    philosophy: '最成熟的等待，不是焦虑地刷新，而是平静地放手。你知道有些东西会来，有些东西不会，而你能做的只是把自己安放好。',
+    closing: '这件作品记录了一种 rare 的能力：在等待中保持平静。'
+  },
+  'working_sad': {
+    intro: '文档写了三行，删了两行。',
+    visual: '光标在屏幕上闪了很久。你不是不想做，是心里有什么东西堵着，让手指变得很重。深夜的工作，有时候不是为了完成，是为了证明自己还在运转。',
+    philosophy: '悲伤的时候坚持工作，不是一种坚强，是一种自救。因为停下来，那些情绪就会涌上来。',
+    closing: '这件作品致敬所有在深夜用工作对抗悲伤的人。'
+  },
+  'eating_annoyed': {
+    intro: '你咬了一口，味道不对。',
+    visual: '太咸了，或者太淡了。你本来就没那么饿，只是嘴馋，或者心烦。食物没有解决问题，但你也懒得再换一份。',
+    philosophy: '烦躁的时候吃东西，往往不是为了满足胃，是为了堵住心里那个不停说话的洞。但食物填不满的，终究是情绪。',
+    closing: '这件作品记录了一个人试图用食物安抚烦躁的失败尝试。'
+  },
+  'phone_sad': {
+    intro: '你打开相册，翻到了很久以前。',
+    visual: '那张照片你看了很多次，但每次看都会停一会儿。手指悬在删除键上，又缩了回来。有些记忆，舍不得删，也舍不得常看。',
+    philosophy: '手机是我们这个时代最私密的博物馆。里面藏着所有舍不得删、也不敢常看的记忆。',
+    closing: '这件作品记录了一个人在屏幕里与过去独处的深夜。'
+  },
+  'sleeping_annoyed': {
+    intro: '你换了三个姿势，还是睡不着。',
+    visual: '被子太厚，掀开又冷。枕头太高，换了又低。你盯着天花板，脑子里像有一台关不掉的机器，嗡嗡地转。',
+    philosophy: '睡不着的烦躁，是因为身体累了，但脑子不肯下班。这种分裂感，是现代人最常见的失眠原因。',
+    closing: '这件作品陪伴所有在深夜与睡眠较劲的人。'
+  },
+  'music_calm': {
+    intro: '你调低了音量，刚好够听见。',
+    visual: '旋律很轻，像有人在远处哼唱。你不需要听懂歌词，只需要那个声音陪着你。这一刻，什么都不想了。',
+    philosophy: '音乐最温柔的时候，不是震撼，是陪伴。像一条安静的河流，流过你，不打扰你，也不离开你。',
+    closing: '这件作品记录了一个人在旋律里找到安宁的瞬间。'
+  },
+  'waiting_annoyed': {
+    intro: '你把手机摔在床上，又捡了起来。',
+    visual: '明知道不会有消息，但还是忍不住看。这种自虐式的期待，像一根刺，扎在手指上，你不停地按它，因为疼比麻木好。',
+    philosophy: '烦躁的等待，是因为你还在乎。不在乎的人，早就睡了。',
+    closing: '这件作品献给所有在深夜为一个人反复亮屏的人。'
+  },
+  'working_empty': {
+    intro: '你盯着屏幕，但什么都没看进去。',
+    visual: '光标在闪，文档是空的。你知道该写什么，但脑子里什么都没有。时间一分一秒过去，你越来越慌，但越慌越写不出来。',
+    philosophy: '空的不是文档，是你自己。你把自己掏空了给别人，到了深夜，发现什么都没有留给自己。',
+    closing: '这件作品记录了一个人在深夜面对空白的无力感。'
+  },
+  'sleeping_empty': {
+    intro: '你闭上眼睛，但意识是清醒的。',
+    visual: '身体很累，脑子很空。你不是睡不着，是不知道睡着了之后，明天还有什么意义。这种空，比失眠更可怕。',
+    philosophy: '睡觉需要意义吗？也许不需要。但人总是忍不住给一切找意义，包括睡觉。',
+    closing: '这件作品温柔地记录了一个人在睡前与虚无对视的时刻。'
+  },
+  'eating_empty': {
+    intro: '冰箱灯亮了，你盯着里面的东西发呆。',
+    visual: '一包饼干，半瓶可乐。你拿出来又放回去，最后拿了一瓶水。不是因为饿，是因为嘴里需要有点什么，证明你还醒着。',
+    philosophy: '深夜的冰箱是一个奇怪的安慰剂。里面的东西不一定好吃，但打开门的那一刻，灯光是暖的。',
+    closing: '这件作品记录了一个人在冰箱门前寻找答案的失败尝试。'
+  },
+  'blank_annoyed': {
+    intro: '你在房间里走来走去，不知道要干什么。',
+    visual: '从床头走到窗边，从窗边走回床头。地板被你踩得有点响。你心里有一团火，但找不到出口。',
+    philosophy: '烦躁的时候，连发呆都变得不安静。身体在动，脑子在转，但什么都没有发生。',
+    closing: '这件作品捕捉了一种罕见的躁动：连静止都无法安抚的烦躁。'
+  },
+  'music_empty': {
+    intro: '歌单播到第23首，你一首都没听进去。',
+    visual: '耳机里在唱歌，但声音像从很远的地方传来。你按了下一首，又下一首。没有一首对，但你也说不清什么才对。',
+    philosophy: '音乐治不好的空，是一种特殊的空。因为连最后的避难所都失效了。',
+    closing: '这件作品记录了一个人在旋律里依然找不到落脚点的时刻。'
+  },
+  'music_annoyed': {
+    intro: '你把音量调到最大，但还是很吵。',
+    visual: '不是音乐吵，是脑子里更吵。你摘下耳机，安静更可怕。戴上，音乐又变成了噪音。',
+    philosophy: '烦躁的时候，连最喜欢的歌都会变成噪音。因为问题不在耳朵里，在心里。',
+    closing: '这件作品记录了一个人与声音对抗的深夜。'
+  },
+  'other_empty': {
+    intro: '你站在房间中央，忘了要干什么。',
+    visual: '灯开着，但你看不清东西。你转了一圈，又转了一圈。时间在这一刻完全失去了方向。',
+    philosophy: '最空的时刻，往往是身体还在动，但灵魂已经走神的时刻。',
+    closing: '这件作品献给所有在深夜突然忘记自己在哪的人。'
+  },
+  'other_sad': {
+    intro: '你缩在角落里，抱着膝盖。',
+    visual: '没有哭，也没有说话。就是缩着，好像这样就能变小一点，小到悲伤找不到你。',
+    philosophy: '悲伤有时候不需要原因，也不需要解决。它就是来了，像一场没有预警的雨。',
+    closing: '这件作品温柔地陪伴所有在深夜缩成一团的人。'
+  },
+  'other_calm': {
+    intro: '你坐在地板上，背靠着床。',
+    visual: '什么都不做，什么都不想。这种平静不是努力来的，是突然降临的。像一场雪，静静地覆盖了所有噪音。',
+    philosophy: '最珍贵的平静，往往是在最奇怪的姿势里找到的。',
+    closing: '这件作品记录了一个人在地板上找到安宁的瞬间。'
+  },
+  'eating_sad': {
+    intro: '你咬了一口蛋糕，但尝不出甜味。',
+    visual: '奶油在嘴里化开，但心是苦的。你机械地咀嚼，一口接一口。食物填满了胃，但填不满别的。',
+    philosophy: '悲伤的时候吃东西，是一种自我欺骗。但有时候，欺骗自己也是必要的。',
+    closing: '这件作品记录了一个人用食物对抗悲伤的夜晚。'
+  },
+  'waiting_empty': {
+    intro: '你把手机翻了个面，屏幕朝下。',
+    visual: '但你还是忍不住看了一眼。没有消息。你松了一口气，又有点失落。这种矛盾，你已经很熟悉了。',
+    philosophy: '空的等待，比有期待的等待更折磨。因为连希望都没有，只剩下习惯。',
+    closing: '这件作品献给所有在深夜习惯性翻手机的人。'
+  },
+  'sleeping_unclear': {
+    intro: '你不知道自己到底想不想睡。',
+    visual: '躺下了，又坐起来。关灯，又开灯。你在睡和不睡之间摇摆，像一盏接触不良的灯。',
+    philosophy: '说不清的困倦，是最折磨人的。因为连身体都不知道自己要什么。',
+    closing: '这件作品记录了一个人在睡眠边缘徘徊的深夜。'
+  },
+  'working_satisfied': {
+    intro: '你终于写完了，光标停在最后一个句号后面。',
+    visual: '你靠在椅背上，长长地呼出一口气。这种满足感很轻，但足够让你微笑一下。没有人看见，但你知道自己做到了。',
+    philosophy: '深夜完成的满足，有一种特殊的甜味。因为那是偷来的时间，是只属于你自己的胜利。',
+    closing: '这件作品致敬所有在深夜偷偷完成任务的人。'
+  }
+};
+
+/* ============================================================
+   生成逻辑
+   ============================================================ */
+function getTimePeriod(hour) {
+  if (hour >= 0 && hour < 5) return '凌晨';
+  if (hour >= 5 && hour < 12) return '上午';
+  if (hour >= 12 && hour < 18) return '下午';
+  if (hour >= 18 && hour < 23) return '夜里';
+  return '深夜';
+}
+
+function generateMuseumNumber(hour, activityCode, moodCode) {
+  return 'No.' + String(hour).padStart(2,'0') + activityCode + moodCode;
+}
+
+function composeExhibit(hour, minute, activity, mood) {
+  var zone = ZONES[activity.zone];
+  var period = getTimePeriod(hour);
+  var timeStr = period + hour + ':' + String(minute).padStart(2,'0');
+  var number = generateMuseumNumber(hour, activity.code, mood.code);
+
+  // 稀有馆藏：隐藏组合触发（特定时间+特定活动+特定情绪）
+  var status = '普通馆藏';
+  var isRare = false;
+  // 隐藏稀有组合：
+  // 03:33 + 等消息 + 说不清
+  if (hour === 3 && minute === 33 && activity.id === 'waiting' && mood.id === 'unclear') isRare = true;
+  // 00:00 + 发呆 + 空的
+  if (hour === 0 && minute === 0 && activity.id === 'blank' && mood.id === 'empty') isRare = true;
+  // 02:17 + 听歌 + 有点难过
+  if (hour === 2 && minute === 17 && activity.id === 'music' && mood.id === 'sad') isRare = true;
+  // 04:44 + 准备睡觉 + 平静
+  if (hour === 4 && minute === 44 && activity.id === 'sleeping' && mood.id === 'calm') isRare = true;
+  // 01:11 + 工作学习 + 有点烦
+  if (hour === 1 && minute === 11 && activity.id === 'working' && mood.id === 'annoyed') isRare = true;
+  // 23:23 + 刷手机 + 平静
+  if (hour === 23 && minute === 23 && activity.id === 'phone' && mood.id === 'calm') isRare = true;
+
+  if (isRare) status = '稀有馆藏';
+  else if (hour >= 0 && hour <= 5) status = '深夜特藏';
+
+  // 查找专属文案，没有则用通用模板
+  var key = activity.id + '_' + mood.id;
+  var exhibit = EXHIBITS[key];
+
+  var desc;
+  if (exhibit) {
+    desc = exhibit.intro + '\n\n' + exhibit.visual + '\n\n' + exhibit.philosophy + '\n\n' + exhibit.closing;
+  } else {
+    desc = '这件作品记录了' + timeStr + '，一个人' + activity.verb + '的瞬间。\n\n' +
+           zone.philosophy + '\n\n' +
+           mood.reflection + '\n\n' +
+           '策展人将这一刻归类为「' + mood.tag + '」，陈列于' + zone.name + '。在这个被快速划过的时代，这样的瞬间值得被留下来看一眼。';
+  }
+
+  var today = new Date();
+  var collectDate = today.getFullYear() + '.' + String(today.getMonth()+1).padStart(2,'0') + '.' + String(today.getDate()).padStart(2,'0');
+
+  return {
+    number: number,
+    title: activity.title,
+    tag: mood.tag,
+    zoneName: zone.name,
+    timeStr: timeStr,
+    description: desc,
+    moodColor: mood.color,
+    status: status,
+    collectDate: collectDate
+  };
+}
+
+/* ============================================================
+   状态
+   ============================================================ */
+var selectedHour = new Date().getHours();
+var selectedMinute = new Date().getMinutes();
+var selectedActivity = null;
+var selectedMood = null;
+var currentExhibit = null;
+var activityTimeoutId = null;
+var moodTimeoutId = null;
+
+/* ============================================================
+   页面切换
+   ============================================================ */
+var pages = {
+  entry: document.getElementById('entryPage'),
+  time: document.getElementById('timeStepPage'),
+  activity: document.getElementById('activityStepPage'),
+  mood: document.getElementById('moodStepPage'),
+  loading: document.getElementById('loadingPage'),
+  result: document.getElementById('resultPage'),
+  history: document.getElementById('historyPage')
+};
+
+function showPage(key) {
+  Object.values(pages).forEach(function(p) { p.classList.remove('active'); });
+  pages[key].classList.add('active');
+}
+
+/* ============================================================
+   灰尘粒子
+   ============================================================ */
+function createDust() {
+  var container = document.getElementById('dust-container');
+  if (!container) return;
+  for (var i = 0; i < 12; i++) {
+    var dust = document.createElement('div');
+    dust.className = 'dust';
+    dust.style.left = (20 + Math.random() * 60) + '%';
+    dust.style.top = (20 + Math.random() * 60) + '%';
+    dust.style.animationDuration = (Math.random() * 5 + 4) + 's';
+    dust.style.animationDelay = Math.random() * 4 + 's';
+    container.appendChild(dust);
+  }
+}
+
+/* ============================================================
+   入馆动画
+   ============================================================ */
+var entryLines = ['博物馆已闭馆','但午夜的灯，一盏一盏亮了起来','今晚，有人来了'];
+
+function playEntryAnimation() {
+  var wrap = document.getElementById('entryTextWrap');
+  var icon = document.querySelector('.museum-icon');
+  wrap.innerHTML = '';
+
+  entryLines.forEach(function(line, i) {
+    var div = document.createElement('div');
+    div.className = 'entry-line';
+    div.textContent = line;
+    wrap.appendChild(div);
+    setTimeout(function() { div.classList.add('show'); }, 600 + i * 1200);
+  });
+
+  var finalDiv = document.createElement('div');
+  finalDiv.className = 'entry-line final';
+  finalDiv.textContent = '欢迎';
+  wrap.appendChild(finalDiv);
+  var finalDelay = 600 + entryLines.length * 1200;
+  setTimeout(function() { finalDiv.classList.add('show'); }, finalDelay);
+
+  var enterBtn = document.getElementById('enterBtn');
+  enterBtn.classList.remove('show');
+  setTimeout(function() { enterBtn.classList.add('show'); }, finalDelay + 600);
+}
+
+/* ============================================================
+   Step1 时间滑块
+   ============================================================ */
+var timeSlider = document.getElementById('timeSlider');
+var timeDisplay = document.getElementById('timeDisplay');
+var timePeriodEl = document.getElementById('timePeriod');
+
+function updateTimeDisplay() {
+  var h = parseInt(timeSlider.value, 10);
+  selectedHour = h;
+  timeDisplay.textContent = String(h).padStart(2,'0') + ':' + String(selectedMinute).padStart(2,'0');
+  timePeriodEl.textContent = getTimePeriod(h);
+}
+
+timeSlider.value = selectedHour;
+updateTimeDisplay();
+timeSlider.addEventListener('input', updateTimeDisplay);
+
+document.getElementById('timeNextBtn').addEventListener('click', function(e) {
+  e.preventDefault();
+  showPage('activity');
+});
+
+/* ============================================================
+   Step2 活动选择
+   ============================================================ */
+var activityGrid = document.getElementById('activityGrid');
+ACTIVITIES.forEach(function(act) {
+  var card = document.createElement('div');
+  card.className = 'activity-card';
+  card.innerHTML = '<span class="a-icon">' + act.icon + '</span><span class="a-label">' + act.label + '</span>';
+  card.addEventListener('click', function() {
+    if (activityTimeoutId) clearTimeout(activityTimeoutId);
+    document.querySelectorAll('.activity-card').forEach(function(c) { c.classList.remove('selected'); });
+    card.classList.add('selected');
+    selectedActivity = act;
+    activityTimeoutId = setTimeout(function() { showPage('mood'); }, 350);
+  });
+  activityGrid.appendChild(card);
+});
+
+/* activityNextBtn保留但不再必须点击 */
+
+/* ============================================================
+   Step3 情绪选择
+   ============================================================ */
+var moodGrid = document.getElementById('moodGrid');
+MOODS.forEach(function(mood) {
+  var wrap = document.createElement('div');
+  wrap.className = 'mood-orb-wrap';
+  wrap.style.color = mood.color;
+
+  var orb = document.createElement('div');
+  orb.className = 'mood-orb';
+  orb.style.background = mood.color + '30';
+  orb.style.borderColor = mood.color + '50';
+
+  var label = document.createElement('div');
+  label.className = 'mood-label';
+  label.textContent = mood.label;
+
+  wrap.appendChild(orb);
+  wrap.appendChild(label);
+
+  wrap.addEventListener('click', function() {
+    if (moodTimeoutId) clearTimeout(moodTimeoutId);
+    document.querySelectorAll('.mood-orb-wrap').forEach(function(w) {
+      w.classList.remove('selected');
+      w.querySelector('.mood-orb').classList.remove('selected');
+    });
+    wrap.classList.add('selected');
+    orb.classList.add('selected');
+    selectedMood = mood;
+    moodTimeoutId = setTimeout(function() { showPage('loading'); runLoadingSequence(); }, 400);
+  });
+
+  moodGrid.appendChild(wrap);
+});
+
+/* moodNextBtn保留但不再必须点击 */
+
+/* ============================================================
+   加载序列 - 数字滚动 + 文字序列
+   ============================================================ */
+var loadingTexts = [
+  '正在调取馆藏记录...',
+  '比对相似夜晚...',
+  '寻找对应展区...',
+  '策展人正在撰写说明...',
+  '完成收录'
+];
+
+function runLoadingSequence() {
+  var numEl = document.getElementById('loadingNumber');
+  var textEl = document.getElementById('loadingText');
+  var count = 0;
+  var finalNum = generateMuseumNumber(selectedHour, selectedActivity.code, selectedMood.code).replace('No.','');
+
+  var interval = setInterval(function() {
+    count++;
+    var display = String(Math.floor(Math.random() * 9999)).padStart(4, '0');
+    numEl.textContent = '# ' + display;
+
+    // 每3次切换一行文字
+    var textIndex = Math.min(Math.floor(count / 3), loadingTexts.length - 1);
+    textEl.textContent = loadingTexts[textIndex];
+
+    if (count >= 15) {
+      clearInterval(interval);
+      numEl.textContent = '# ' + finalNum;
+      textEl.textContent = '展品已准备';
+      setTimeout(function() {
+        currentExhibit = composeExhibit(selectedHour, selectedMinute, selectedActivity, selectedMood);
+        saveToHistory(currentExhibit);
+        renderResult(currentExhibit);
+        showPage('result');
+      }, 800);
+    }
+  }, 120);
+}
+
+/* ============================================================
+   结果页渲染 + 分层揭示
+   ============================================================ */
+function renderResult(ex) {
+  var card = document.querySelector('.exhibit-card');
+  card.classList.remove('rare');
+  var existingBadge = card.querySelector('.rare-badge');
+  if (existingBadge) existingBadge.remove();
+
+  if (ex.status === '稀有馆藏' || ex.status === '深夜特藏') {
+    card.classList.add('rare');
+    var badge = document.createElement('div');
+    badge.className = 'rare-badge';
+    badge.textContent = 'SPECIAL COLLECTION';
+    card.appendChild(badge);
+  }
+
+  document.getElementById('exNumber').textContent = ex.number;
+  document.getElementById('exTitle').textContent = '《' + ex.title + '》';
+  document.getElementById('exMeta').innerHTML =
+    '<div class="ex-meta-row">分类：<b>' + ex.tag + '</b></div>' +
+    '<div class="ex-meta-row">时间：<b>' + ex.timeStr + '</b></div>' +
+    '<div class="ex-meta-row">馆区：<b>' + ex.zoneName + '</b></div>' +
+    '<div class="ex-meta-row">收录时间：<b>' + ex.collectDate + '</b></div>' +
+    '<div class="ex-meta-row">馆藏状态：<b>' + ex.status + '</b></div>';
+  document.getElementById('exDesc').textContent = ex.description;
+
+  document.querySelectorAll('.reveal-item').forEach(function(el) { el.classList.remove('show'); });
+  var order = ['exNumber','exTitle','exMeta','exDesc'];
+  order.forEach(function(id, i) {
+    setTimeout(function() { document.getElementById(id).classList.add('show'); }, 300 + i * 600);
+  });
+
+  // 震动反馈（如果支持）
+  if (navigator.vibrate) navigator.vibrate(50);
+
+  // 门票数据
+  document.getElementById('ticketNumber').textContent = ex.number;
+  document.getElementById('ticketTitle').textContent = '《' + ex.title + '》';
+  document.getElementById('ticketTag').textContent = ex.tag;
+  document.getElementById('ticketTime').textContent = ex.timeStr + ' · ' + ex.zoneName;
+  document.getElementById('ticketQuote').textContent = ex.description.split('\n\n')[2] || ex.description;
+
+  renderCuratorPicks();
+  document.getElementById('resultPage').scrollTop = 0;
+}
+
+/* ============================================================
+   馆长精选
+   ============================================================ */
+var CURATOR_SEEDS = [
+  { hour:2,  activityId:'waiting',  moodId:'unclear' },
+  { hour:1,  activityId:'music',    moodId:'sad' },
+  { hour:3,  activityId:'working',  moodId:'annoyed' },
+  { hour:4,  activityId:'blank',    moodId:'empty' },
+  { hour:0,  activityId:'phone',    moodId:'calm' },
+  { hour:23, activityId:'eating',   moodId:'satisfied' }
+];
+
+function renderCuratorPicks() {
+  var list = document.getElementById('curatorList');
+  list.innerHTML = '';
+
+  var currentZoneName = ZONES[selectedActivity.zone].name;
+  var candidates = CURATOR_SEEDS
+    .map(function(seed) {
+      var act = ACTIVITIES.find(function(a) { return a.id === seed.activityId; });
+      var mood = MOODS.find(function(m) { return m.id === seed.moodId; });
+      return composeExhibit(seed.hour, Math.floor(Math.random()*60), act, mood);
+    })
+    .filter(function(ex) { return ex.zoneName !== currentZoneName; });
+
+  var picks = candidates.sort(function() { return Math.random() - 0.5; }).slice(0, 3);
+
+  picks.forEach(function(ex) {
+    var card = document.createElement('div');
+    card.className = 'curator-card';
+    card.innerHTML =
+      '<div class="curator-card-head">' +
+        '<div class="curator-card-title">《' + ex.title + '》</div>' +
+        '<div class="curator-card-num">' + ex.number + '</div>' +
+      '</div>' +
+      '<div class="curator-card-tag">' + ex.tag + ' · ' + ex.zoneName + '</div>' +
+      '<div class="curator-card-snippet">' + ex.description + '</div>' +
+      '<div class="curator-card-hint">点击查看策展说明</div>';
+    card.addEventListener('click', function() { card.classList.toggle('expanded'); });
+    list.appendChild(card);
+  });
+}
+
+/* ============================================================
+   保存 / 分享
+   ============================================================ */
+document.getElementById('saveBtn').addEventListener('click', function(e) {
+  e.preventDefault();
+  var card = document.getElementById('shareCard');
+  card.style.top = '0';
+  card.style.left = '0';
+  html2canvas(card, { backgroundColor:'#0a0908', scale:2, logging:false }).then(function(canvas) {
+    card.style.top = '-9999px';
+    card.style.left = '-9999px';
+    var link = document.createElement('a');
+    link.href = canvas.toDataURL('image/png');
+    link.download = '深夜博物馆_' + currentExhibit.number + '.png';
+    link.click();
+  });
+});
+
+document.getElementById('shareBtn').addEventListener('click', function(e) {
+  e.preventDefault();
+  var card = document.getElementById('shareCard');
+  card.style.top = '0';
+  card.style.left = '0';
+  html2canvas(card, { backgroundColor:'#0a0908', scale:2, logging:false }).then(function(canvas) {
+    card.style.top = '-9999px';
+    card.style.left = '-9999px';
+    canvas.toBlob(function(blob) {
+      var file = new File([blob], '深夜博物馆_' + currentExhibit.number + '.png', { type:'image/png' });
+      if (navigator.share && navigator.canShare && navigator.canShare({ files:[file] })) {
+        navigator.share({
+          files:[file],
+          title:'我在深夜博物馆被收录了 ' + currentExhibit.number,
+          text:currentExhibit.tag
+        }).catch(function(){});
+      } else {
+        var link = document.createElement('a');
+        link.href = canvas.toDataURL('image/png');
+        link.download = '深夜博物馆_' + currentExhibit.number + '.png';
+        link.click();
+      }
+    });
+  });
+});
+
+/* ============================================================
+   重新入馆
+   ============================================================ */
+document.getElementById('retestBtn').addEventListener('click', function(e) {
+  e.preventDefault();
+  selectedActivity = null;
+  selectedMood = null;
+  document.querySelectorAll('.activity-card').forEach(function(c) { c.classList.remove('selected'); });
+  document.querySelectorAll('.mood-orb-wrap').forEach(function(w) {
+    w.classList.remove('selected');
+    w.querySelector('.mood-orb').classList.remove('selected');
+  });
+  selectedMinute = new Date().getMinutes();
+  selectedHour = new Date().getHours();
+  timeSlider.value = selectedHour;
+  updateTimeDisplay();
+  showPage('entry');
+  playEntryAnimation();
+});
+
+/* ============================================================
+   个人馆藏历史记录
+   ============================================================ */
+function saveToHistory(exhibit) {
+  try {
+    var history = JSON.parse(localStorage.getItem('midnight_museum_history') || '[]');
+    history.unshift({
+      number: exhibit.number,
+      title: exhibit.title,
+      tag: exhibit.tag,
+      zoneName: exhibit.zoneName,
+      timeStr: exhibit.timeStr,
+      status: exhibit.status,
+      collectDate: exhibit.collectDate,
+      timestamp: Date.now()
+    });
+    // 最多保存20条
+    if (history.length > 20) history = history.slice(0, 20);
+    localStorage.setItem('midnight_museum_history', JSON.stringify(history));
+  } catch(e) {}
+}
+
+function renderHistory() {
+  var list = document.getElementById('historyList');
+  var history = [];
+  try {
+    history = JSON.parse(localStorage.getItem('midnight_museum_history') || '[]');
+  } catch(e) {}
+
+  if (history.length === 0) {
+    list.innerHTML = '<div style="text-align:center;color:rgba(232,224,212,0.3);font-size:13px;padding:60px 20px;">还没有馆藏记录<br>完成一次参观后，你的展品会出现在这里</div>';
+    return;
+  }
+
+  var html = '';
+  history.forEach(function(item) {
+    var isRare = item.status === '稀有馆藏';
+    html +=
+      '<div style="background:rgba(232,224,212,0.02);border:1px solid ' + (isRare ? 'rgba(212,165,116,0.3)' : 'rgba(232,224,212,0.06)') + ';padding:16px;margin-bottom:10px;">' +
+        '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px;">' +
+          '<div style="font-size:14px;color:#e8c4a0;font-family:Georgia,serif;font-weight:600;">《' + item.title + '》</div>' +
+          '<div style="font-size:10px;color:rgba(232,224,212,0.25);">' + item.number + '</div>' +
+        '</div>' +
+        '<div style="font-size:12px;color:rgba(232,224,212,0.4);margin-bottom:4px;">' + item.tag + ' · ' + item.zoneName + '</div>' +
+        '<div style="display:flex;justify-content:space-between;align-items:center;">' +
+          '<div style="font-size:11px;color:rgba(232,224,212,0.25);">' + item.timeStr + ' · ' + item.collectDate + '</div>' +
+          (isRare ? '<div style="font-size:10px;color:#a8895f;border:1px solid rgba(168,137,95,0.3);padding:2px 8px;">稀有馆藏</div>' : '') +
+        '</div>' +
+      '</div>';
+  });
+  list.innerHTML = html;
+}
+
+document.getElementById('historyBtn').addEventListener('click', function(e) {
+  e.preventDefault();
+  renderHistory();
+  showPage('history');
+});
+
+document.getElementById('backFromHistory').addEventListener('click', function(e) {
+  e.preventDefault();
+  showPage('result');
+});
+
+/* ============================================================
+   初始化
+   ============================================================ */
+createDust();
+playEntryAnimation();
+
+document.getElementById('enterBtn').addEventListener('click', function(e) {
+  e.preventDefault();
+  showPage('time');
+});
+</script>
+</body>
+</html>
