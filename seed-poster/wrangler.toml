@@ -1,0 +1,13 @@
+name = "seed-poster-ai"
+main = "worker.js"
+compatibility_date = "2026-11-01"
+workers_dev = true
+
+# Secrets are set through Cloudflare, never in this file:
+# IMAGE_API_KEY, TEXT_API_KEY, ACCESS_CODE (24+ random characters).
+[vars]
+ALLOWED_ORIGIN = "https://semifrej722-ops.github.io"
+# Set to the exact chat model ID enabled on your text account before deployment.
+TEXT_MODEL = ""
+# Exact trusted result/redirect hostnames, comma separated, no wildcards.
+IMAGE_RESULT_HOSTS = "cos.lingkeai.vip"

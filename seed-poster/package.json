@@ -1,0 +1,6 @@
+{
+  "name": "seed-poster",
+  "private": true,
+  "type": "module",
+  "scripts": {"test": "node --test tests/*.test.js", "check": "node --check worker.js && node --check ai.js && node --check ai-client.js && node --check poster-export.js"}
+}
