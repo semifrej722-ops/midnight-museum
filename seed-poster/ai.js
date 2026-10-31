@@ -1,0 +1,14 @@
+(()=>{
+const $=id=>document.getElementById(id);
+const ep=$('aiEndpoint'),code=$('aiAccess'),st=$('aiStatus'),imgBtn=$('aiImageBtn'),copyBtn=$('aiCopyBtn');
+try{ep.value=localStorage.getItem('seedposter_endpoint')||''}catch{}
+ep.onchange=()=>{try{localStorage.setItem('seedposter_endpoint',ep.value.trim())}catch{}};
+const setBusy=v=>{imgBtn.disabled=v;copyBtn.disabled=v};
+const cfg=()=>{const url=ep.value.trim().replace(/\/$/,'');if(!/^https:\/\//.test(url))throw Error('请先填写 Cloudflare Worker HTTPS 地址');if(code.value.length<8)throw Error('请填写 Worker 访问口令（不是模型 API Key）');return {url,secret:code.value}};
+async function post(path,data){const c=cfg();const r=await fetch(c.url+path,{method:'POST',headers:{'Content-Type':'application/json','X-Access-Code':c.secret},body:JSON.stringify(data)});if(r.ok&&r.headers.get('content-type')?.startsWith('image/'))return {blob:await r.blob()};let v;try{v=await r.json()}catch{throw Error('接口未返回有效 JSON')}if(!r.ok)throw Error(v.error||'接口请求失败');return v}
+async function applySource(source){const image=new Image();let tmp;if(source instanceof Blob){tmp=URL.createObjectURL(source);image.src=tmp}else image.src=source;try{await image.decode()}finally{if(tmp)URL.revokeObjectURL(tmp)}
+const c=document.createElement('canvas');c.width=Math.min(1600,image.naturalWidth);c.height=Math.round(c.width*image.naturalHeight/image.naturalWidth);c.getContext('2d').drawImage(image,0,0,c.width,c.height);
+const blob=await new Promise(resolve=>c.toBlob(resolve,'image/png'));if(!blob)throw Error('浏览器无法转换图片');const dt=new DataTransfer();dt.items.add(new File([blob],'AI田间背景.png',{type:'image/png'}));$('scene').files=dt.files;$('scene').dispatchEvent(new Event('change',{bubbles:true}))}
+imgBtn.onclick=async()=>{setBusy(true);st.textContent='正在调用生图模型，请勿重复点击…';try{const v=await post('/api/generate-image',{product:$('product').value,prompt:$('aiPrompt').value,theme:document.querySelector('.template.active')?.textContent||'农业风格'});await applySource(v.blob||v.image);st.textContent='AI 背景已生成，可在中间预览并下载 PNG。'}catch(e){st.textContent='生图失败：'+e.message}finally{setBusy(false)}};
+copyBtn.onclick=async()=>{setBusy(true);st.textContent='正在生成宣传文案…';try{const v=await post('/api/generate-copy',{product:$('product').value,company:$('company').value,brief:$('aiPrompt').value,points:[$('point1').value,$('point2').value,$('point3').value].join('；')});if(!v.copy)throw Error('没有收到文案');for(const k of ['headline','subline','point1','point2','point3'])if(v.copy[k]){$(k).value=v.copy[k];$(k).dispatchEvent(new Event('input',{bubbles:true}))}st.textContent='文案已更新，品种性状请对照官方资料核实。'}catch(e){st.textContent='文案失败：'+e.message}finally{setBusy(false)}};
+})();
